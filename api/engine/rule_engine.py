@@ -239,7 +239,10 @@ def save_session_result(session_id: str, summary: dict, checklist_items: list, d
                ON CONFLICT (session_id) DO UPDATE SET
                overall_result = EXCLUDED.overall_result,
                rules_passed = EXCLUDED.rules_passed,
-               rules_failed = EXCLUDED.rules_failed""",
+               rules_failed = EXCLUDED.rules_failed,
+               rules_flagged = EXCLUDED.rules_flagged,
+               checklist_items = EXCLUDED.checklist_items,
+               disclaimer = EXCLUDED.disclaimer""",
             (session_id, summary["overall_result"], json.dumps(summary["rules_passed"]), 
              json.dumps(summary["rules_failed"]), json.dumps(summary["rules_flagged"]), 
              json.dumps(checklist_items), summary["disclaimer"])

@@ -105,7 +105,8 @@ CREATE TABLE IF NOT EXISTS sessions (
     flags_2026 JSONB DEFAULT '[]',
     eta_required BOOLEAN DEFAULT FALSE,
     status VARCHAR(20) DEFAULT 'active',
-    created_at TIMESTAMP DEFAULT NOW()
+    created_at TIMESTAMP DEFAULT NOW(),
+    completed_at TIMESTAMP
 );
 
 -- 9. session_answers
@@ -117,6 +118,19 @@ CREATE TABLE IF NOT EXISTS session_answers (
     answer TEXT,
     rule_result VARCHAR(20),
     fail_reason TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- 11. session_results
+CREATE TABLE IF NOT EXISTS session_results (
+    id SERIAL PRIMARY KEY,
+    session_id UUID UNIQUE REFERENCES sessions(id),
+    overall_result VARCHAR(20),
+    rules_passed JSONB DEFAULT '[]',
+    rules_failed JSONB DEFAULT '[]',
+    rules_flagged JSONB DEFAULT '[]',
+    checklist_items JSONB DEFAULT '[]',
+    disclaimer TEXT,
     created_at TIMESTAMP DEFAULT NOW()
 );
 
