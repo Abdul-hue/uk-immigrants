@@ -55,8 +55,7 @@ def load_sequence(route: str, flags_2026: list, db_conn) -> list:
             SELECT qt.id, qt.paragraph_ref, qt.question_text,
                    qt.answer_type, qt.answer_options,
                    qt.fail_condition_description,
-                   qt.sequence_stage, qt.confidence,
-                   COALESCE(rp.heading_context, '') as heading_context
+                   qt.sequence_stage, qt.confidence
             FROM question_templates qt
             JOIN rule_paragraphs rp 
               ON qt.paragraph_ref = rp.paragraph_ref
@@ -78,7 +77,7 @@ def load_sequence(route: str, flags_2026: list, db_conn) -> list:
                 "fail_condition_description": row[5],
                 "sequence_stage": row[6],
                 "confidence": float(row[7]) if row[7] else 0.9,
-                "heading_context": row[8] or ""
+                "heading_context": ""
             })
     
     # Apply B2 English override
