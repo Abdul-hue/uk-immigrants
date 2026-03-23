@@ -120,3 +120,16 @@ CREATE TABLE IF NOT EXISTS session_answers (
     created_at TIMESTAMP DEFAULT NOW()
 );
 
+-- 10. hard_gates
+CREATE TABLE IF NOT EXISTS hard_gates (
+    id            SERIAL PRIMARY KEY,
+    gate_order    INTEGER UNIQUE NOT NULL,
+    name          VARCHAR(50) NOT NULL,
+    paragraph_ref VARCHAR(30),
+    question      TEXT NOT NULL,
+    fail_type     VARCHAR(20) NOT NULL,
+    fail_message  TEXT NOT NULL,
+    fires_before_route BOOLEAN DEFAULT TRUE,
+    active        BOOLEAN DEFAULT TRUE
+);
+
