@@ -1,11 +1,28 @@
 def load_constraint(paragraph_ref: str, db_conn) -> dict:
     cur = db_conn.cursor()
     try:
-        cur.execute("SELECT constraint_json FROM rule_paragraphs WHERE paragraph_ref = %s", (paragraph_ref,))
+        # Join rule_paragraphs and question_templates to get full context for evaluation
+        cur.execute("""
+            SELECT 
+                rp.constraint_json, 
+                qt.answer_type, 
+                qt.fail_condition_description,
+                rp.paragraph_ref
+            FROM rule_paragraphs rp
+            LEFT JOIN question_templates qt 
+              ON rp.paragraph_ref = qt.paragraph_ref
+            WHERE rp.paragraph_ref = %s
+        """, (paragraph_ref,))
         row = cur.fetchone()
         if not row or not row[0]:
             raise ValueError(f"Constraint not found or NULL for {paragraph_ref}")
-        return row[0]
+        
+        # Merge the JSON blob with the table metadata
+        constraint = row[0]
+        constraint["answer_type"] = row[1] or "text"
+        constraint["fail_condition_description"] = row[2]
+        constraint["paragraph_ref"] = row[3]
+        return constraint
     finally:
         cur.close()
 
@@ -26,8 +43,15 @@ def evaluate_answer(constraint: dict, user_answer: str) -> dict:
     parsed = None 
     try: 
         if answer_type in ("currency", "number", "integer"): 
-            clean = str(user_answer).replace("£","").replace(",","").strip() 
-            parsed = float(clean) 
+            # Remove currency symbols, commas, and non-numeric characters (except decimals)
+            import re
+            clean = str(user_answer).replace("£","").replace(",","").strip()
+            # Extract the first number found in the string (e.g., "12 DAYS" -> "12")
+            match = re.search(r"[-+]?\d*\.\d+|\d+", clean)
+            if match:
+                parsed = float(match.group())
+            else:
+                raise ValueError("No number found in input")
         elif answer_type == "boolean": 
             parsed = str(user_answer).lower().strip() in ( 
                 "yes", "true", "1", "y" 
