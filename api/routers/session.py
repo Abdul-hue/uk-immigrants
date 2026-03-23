@@ -1,0 +1,132 @@
+from fastapi import APIRouter, HTTPException, Depends
+from api.models.schemas import (
+    StartSessionRequest, StartSessionResponse,
+    HardGateAnswersRequest, HardGateResponse
+)
+from api.engine.sequence import (
+    initialize_session, process_hard_gate_answers
+)
+from db.connection import get_connection
+import psycopg2
+
+router = APIRouter()
+
+def get_db():
+    conn = get_connection()
+    try:
+        yield conn
+    finally:
+        conn.close()
+
+@router.post("/start", response_model=StartSessionResponse)
+def start_session(request: StartSessionRequest, 
+                  db=Depends(get_db)):
+    """
+    Entry point for every user session.
+    Classifies intent, creates session row, loads hard gates.
+    """
+    try:
+        result = initialize_session(
+            user_input=request.user_input,
+            nationality_iso=request.nationality_iso,
+            db_conn=db
+        )
+        
+        if result.get("status") == "NEEDS_CLARIFICATION":
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "status": "NEEDS_CLARIFICATION",
+                    "clarifying_question": result.get("clarifying_question"),
+                    "disclaimer": (
+                        "This is a Preliminary Self-Assessment only. "
+                        "It does not constitute legal advice."
+                    )
+                }
+            )
+        
+        return StartSessionResponse(
+            session_id=str(result["session_id"]),
+            route=result["route"],
+            confidence=result["confidence"],
+            flags_2026=result["flags_2026"],
+            eta_required=result["eta_required"],
+            flag_warnings=result.get("flag_warnings", []),
+            next_step=result["next_step"],
+            hard_gate_questions=result["hard_gate_questions"],
+            disclaimer=result["disclaimer"]
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/hard-gate", response_model=HardGateResponse)
+def submit_hard_gate(request: HardGateAnswersRequest,
+                     db=Depends(get_db)):
+    """
+    Submit answers to all 6 hard gate questions.
+    Returns PASS, FLAGGED, or HARD_FAIL.
+    HARD_FAIL ends the session immediately.
+    """
+    try:
+        answers = {
+            "has_deportation_order": request.has_deportation_order,
+            "has_used_deception": request.has_used_deception,
+            "has_criminal_conviction": request.has_criminal_conviction,
+            "has_immigration_debt": request.has_immigration_debt,
+            "has_overstayed_90_days": request.has_overstayed_90_days
+        }
+        
+        result = process_hard_gate_answers(
+            session_id=request.session_id,
+            answers=answers,
+            db_conn=db
+        )
+        
+        return HardGateResponse(
+            session_id=request.session_id,
+            result=result["result"],
+            session_can_continue=result["session_can_continue"],
+            flagged_gates=result.get("flagged_gates", []),
+            fail_message=result.get("fail_message"),
+            next_step=result.get("next_step", "questions"),
+            disclaimer=result["disclaimer"]
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/{session_id}/status")
+def get_session_status(session_id: str, db=Depends(get_db)):
+    """Get current session status and progress."""
+    cur = db.cursor()
+    cur.execute("""
+        SELECT s.id, s.route, s.status, s.flags_2026,
+               s.started_at, s.completed_at,
+               COUNT(sa.id) as answers_given
+        FROM sessions s
+        LEFT JOIN session_answers sa ON sa.session_id = s.id
+        WHERE s.id = %s
+        GROUP BY s.id
+    """, (session_id,))
+    row = cur.fetchone()
+    cur.close()
+    
+    if not row:
+        raise HTTPException(status_code=404, 
+                           detail="Session not found")
+    
+    return {
+        "session_id": str(row[0]),
+        "route": row[1],
+        "status": row[2],
+        "flags_2026": row[3],
+        "started_at": str(row[4]),
+        "completed_at": str(row[5]) if row[5] else None,
+        "answers_given": row[6],
+        "disclaimer": (
+            "This is a Preliminary Self-Assessment only. "
+            "It does not constitute legal advice."
+        )
+    }

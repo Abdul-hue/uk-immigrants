@@ -1,0 +1,12 @@
+{
+  "name": "uk-immigration-eligibility-platform",
+  "private": true,
+  "workspaces": [
+    "frontend"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace frontend",
+    "build": "npm run build --workspace frontend",
+    "start-api": "python -m uvicorn api.main:app --reload --port 8000 --reload-dir api"
+  }
+}

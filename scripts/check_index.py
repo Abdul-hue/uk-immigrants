@@ -1,0 +1,1 @@
+﻿from dotenv import load_dotenv; import os; load_dotenv(override=True); from pinecone import Pinecone; pc = Pinecone(api_key=os.getenv('PINECONE_API_KEY')); idx = pc.Index(os.getenv('PINECONE_INDEX_NAME')); stats = idx.describe_index_stats(); print('Total vectors:', stats.total_vector_count); print('Dimensions:', stats.dimension); print('Expected: 1536 ✅')
