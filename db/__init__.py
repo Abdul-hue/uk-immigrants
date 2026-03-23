@@ -1,1 +1,1 @@
-"""Database module."""
+# Package for database related tasks

@@ -10,10 +10,20 @@ load_dotenv()
 
 
 def get_connection():
-    """Return a psycopg2 connection using DATABASE_URL."""
+    """Return a psycopg2 connection using DATABASE_URL with SSL for Neon/Vercel."""
     url = os.getenv("DATABASE_URL")
     if not url:
-        raise ValueError("DATABASE_URL environment variable is not set")
+        # Fallback to POSTGRES_URL which Vercel sometimes auto-injects
+        url = os.getenv("POSTGRES_URL")
+    
+    if not url:
+        raise ValueError("DATABASE_URL or POSTGRES_URL environment variable is not set")
+    
+    # Ensure SSL is enabled for Neon/Vercel
+    if "sslmode" not in url:
+        separator = "&" if "?" in url else "?"
+        url += f"{separator}sslmode=require"
+        
     return psycopg2.connect(url)
 
 
