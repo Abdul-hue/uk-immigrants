@@ -50,6 +50,18 @@ def retrieve_explanation(question: str, paragraph_ref: str = None, top_k: int = 
             })
     return matches
 
+def rewrite_with_gpt4o(raw_text: str) -> str:
+    from openai import OpenAI
+    client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+    prompt = f"Rewrite this UK immigration rule in plain English for someone with no legal knowledge. Maximum 3 sentences. No legal jargon. No reference codes.\n\nRule:\n{raw_text}"
+    response = client.chat.completions.create(
+        model="gpt-4o",
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=200,
+        temperature=0.3
+    )
+    return response.choices[0].message.content.strip()
+
 def build_explanation(question: str, paragraph_ref: str, chunks: list[dict]) -> str:
     if not chunks:
         return (
@@ -58,7 +70,13 @@ def build_explanation(question: str, paragraph_ref: str, chunks: list[dict]) -> 
             "or consult a qualified immigration solicitor."
         )
     
-    return f"Based on GOV.UK guidance: {chunks[0]['text'][:500]}\n\nSource: {chunks[0]['url']}"
+    raw_text = chunks[0]['text']
+    try:
+        rewritten_text = rewrite_with_gpt4o(raw_text)
+        return f"{rewritten_text}\n\nSource: {chunks[0]['url']}"
+    except Exception as e:
+        print(f"GPT-4o rewrite failed: {e}")
+        return f"Based on GOV.UK guidance: {raw_text[:500]}...\n\nSource: {chunks[0]['url']}"
 
 def explain_paragraph(paragraph_ref: str, question: str) -> dict:
     chunks = retrieve_explanation(question, paragraph_ref)

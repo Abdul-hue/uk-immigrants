@@ -39,6 +39,7 @@ CREATE TABLE IF NOT EXISTS question_templates (
     answer_type VARCHAR(20),
     answer_options JSONB,
     fail_condition_description TEXT,
+    plain_english_hint TEXT,
     confidence NUMERIC(3,2),
     requires_human_review BOOLEAN DEFAULT FALSE,
     verified BOOLEAN DEFAULT FALSE,

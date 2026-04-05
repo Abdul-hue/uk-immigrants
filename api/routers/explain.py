@@ -16,6 +16,8 @@ class ExplainResponse(BaseModel):
     disclaimer: str
     corpus_b_status: str
 
+from api.utils import strip_internal_refs
+
 @router.post("/", response_model=ExplainResponse)
 def explain_rule(request: ExplainRequest):
     """
@@ -31,6 +33,10 @@ def explain_rule(request: ExplainRequest):
             paragraph_ref=request.paragraph_ref,
             question=request.question
         )
+        # Strip internal refs from the explanation and paragraph_ref in the response
+        result["explanation"] = strip_internal_refs(result.get("explanation", ""))
+        result["paragraph_ref"] = strip_internal_refs(result.get("paragraph_ref", ""))
+        
         return ExplainResponse(**result)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

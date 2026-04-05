@@ -37,6 +37,7 @@ class NextQuestionResponse(BaseModel):
     question_number: int
     total_questions: int
     paragraph_ref: str
+    ref_id: str  # Technical ID used for submissions, not for rendering
     question_text: str
     answer_type: str
     answer_options: list[str] | None
@@ -45,16 +46,24 @@ class NextQuestionResponse(BaseModel):
 
 class SubmitAnswerRequest(BaseModel):
     session_id: str
-    paragraph_ref: str
+    paragraph_ref: str # Kept for backward compatibility, but we should use ref_id
+    ref_id: str | None = None
     answer: str
 
 class SubmitAnswerResponse(BaseModel):
     session_id: str
     paragraph_ref: str
+    ref_id: str | None = None
     result: str         # PASS | FAIL | FLAG
     fail_reason: str | None
     next_step: str      # "next_question" | "complete"
     disclaimer: str
+
+class CheckSummary(BaseModel):
+    question: str
+    answer: str
+    result: str
+    reason: str | None
 
 class SessionResultResponse(BaseModel):
     session_id: str
@@ -62,5 +71,6 @@ class SessionResultResponse(BaseModel):
     rules_passed: list[str]
     rules_failed: list[str]
     rules_flagged: list[str]
+    summary: list[CheckSummary]
     checklist_items: list[str]
     disclaimer: str

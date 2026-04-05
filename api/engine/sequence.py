@@ -11,6 +11,7 @@ from classifier.intent_classifier import classify_intent, ROUTE_TO_APPENDIX
 from hard_gate.engine import evaluate_hard_gates
 from hard_gate.loader import HARD_GATE_DEFINITIONS
 from api.engine.rule_engine import load_constraint, get_session_summary, save_session_result, get_checklist_for_route
+from api.utils import get_route_display_name
 
 DISCLAIMER = (
     "This is a Preliminary Self-Assessment only. "
@@ -67,7 +68,13 @@ def load_sequence(route: str, flags_2026: list, db_conn) -> list:
         rows = cur.fetchall()
         cur.close()
         
+        seen_refs = set()
         for row in rows:
+            p_ref = row[1]
+            if p_ref in seen_refs:
+                continue
+            seen_refs.add(p_ref)
+            
             questions.append({
                 "id": row[0],
                 "paragraph_ref": row[1],
@@ -219,7 +226,7 @@ def initialize_session(user_input: str, nationality_iso: str, db_conn) -> dict:
     return {
         "session_id": session_id,
         "status": "READY",
-        "route": result["route"],
+        "route": get_route_display_name(result["route"]),
         "confidence": result["confidence"],
         "flags_2026": result["flags_2026"],
         "eta_required": result["eta_required"],

@@ -8,6 +8,9 @@ from api.engine.sequence import (
 )
 from db.connection import get_connection
 import psycopg2
+import io
+import csv
+from fastapi.responses import StreamingResponse
 
 router = APIRouter()
 
@@ -17,6 +20,54 @@ def get_db():
         yield conn
     finally:
         conn.close()
+
+from api.utils import strip_internal_refs
+
+@router.get("/{session_id}/export")
+def export_session_csv(session_id: str, db=Depends(get_db)):
+    """
+    Returns a CSV of: question, answer, rule_result, paragraph_ref.
+    """
+    cur = db.cursor()
+    # Bug 5 — MEDIUM: Reference column is blank in every CSV row
+    # Join session_answers with rule_paragraphs to get the plain-English rule text
+    cur.execute("""
+        SELECT sa.question_text, sa.answer, sa.rule_result, rp.raw_text
+        FROM session_answers sa
+        LEFT JOIN rule_paragraphs rp ON sa.paragraph_ref = rp.paragraph_ref
+        WHERE sa.session_id = %s
+        ORDER BY sa.created_at ASC
+    """, (session_id,))
+    rows = cur.fetchall()
+    cur.close()
+    
+    if not rows:
+        raise HTTPException(status_code=404, detail="No answers found for this session")
+    
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Question", "Answer", "Result", "Reference"])
+    for row in rows:
+        # Strip internal refs from all string fields in the row
+        # If raw_text (Reference) is missing, use default text
+        question, answer, result, reference = row
+        reference = reference if reference else "See full assessment for details."
+        
+        clean_row = [
+            strip_internal_refs(str(question)),
+            strip_internal_refs(str(answer)),
+            str(result),
+            strip_internal_refs(str(reference))
+        ]
+        writer.writerow(clean_row)
+    
+    output.seek(0)
+    
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f"attachment; filename=eligibility_result_{session_id}.csv"}
+    )
 
 @router.post("/start", response_model=StartSessionResponse)
 def start_session(request: StartSessionRequest, 
@@ -89,7 +140,7 @@ def submit_hard_gate(request: HardGateAnswersRequest,
             result=result["result"],
             session_can_continue=result["session_can_continue"],
             flagged_gates=result.get("flagged_gates", []),
-            fail_message=result.get("fail_message"),
+            fail_message=strip_internal_refs(result.get("fail_message")),
             next_step=result.get("next_step", "questions"),
             disclaimer=result["disclaimer"]
         )

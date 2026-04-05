@@ -11,7 +11,9 @@ SKILLED_WORKER_QUESTIONS = [
     "answer_type": "boolean",
     "answer_options": None,
     "fail_condition_description": "A valid CoS from a licensed sponsor is mandatory for the Skilled Worker route.",
+    "plain_english_hint": "A CoS is a digital record from your employer confirming your job offer.",
     "constraint_json": {"field": "has_cos", "operator": "exists", "value": None},
+    "is_hard_gate": True,
     "confidence": 0.98
   },
   {
@@ -389,15 +391,17 @@ def seed_question_sequences(db_conn) -> dict:
         cur.execute("""
             INSERT INTO rule_paragraphs
               (appendix_code, paragraph_ref, raw_text,
-               constraint_json, verified)
-            VALUES (%s, %s, %s, %s, FALSE)
+               constraint_json, is_hard_gate, verified)
+            VALUES (%s, %s, %s, %s, %s, FALSE)
             ON CONFLICT (paragraph_ref) DO UPDATE SET
-              constraint_json = EXCLUDED.constraint_json
+              constraint_json = EXCLUDED.constraint_json,
+              is_hard_gate = EXCLUDED.is_hard_gate
         """, (
             q["appendix_code"],
             q["paragraph_ref"],
             q["question_text"],
-            json.dumps(q["constraint_json"])
+            json.dumps(q["constraint_json"]),
+            q.get("is_hard_gate", False)
         ))
 
         # Upsert into question_templates
@@ -405,13 +409,14 @@ def seed_question_sequences(db_conn) -> dict:
             INSERT INTO question_templates
               (paragraph_ref, appendix_code, sequence_stage,
                question_text, answer_type, answer_options,
-               fail_condition_description, confidence, verified)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, FALSE)
+               fail_condition_description, plain_english_hint, confidence, verified)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, FALSE)
             ON CONFLICT (paragraph_ref) DO UPDATE SET
               question_text = EXCLUDED.question_text,
               answer_type = EXCLUDED.answer_type,
               answer_options = EXCLUDED.answer_options,
-              confidence = EXCLUDED.confidence
+              confidence = EXCLUDED.confidence,
+              plain_english_hint = EXCLUDED.plain_english_hint
         """, (
             q["paragraph_ref"],
             q["appendix_code"],
@@ -420,6 +425,7 @@ def seed_question_sequences(db_conn) -> dict:
             q["answer_type"],
             json.dumps(q["answer_options"]) if q["answer_options"] else None,
             q["fail_condition_description"],
+            q.get("plain_english_hint"),
             q["confidence"]
         ))
 

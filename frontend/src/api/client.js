@@ -21,18 +21,19 @@ export const submitHardGate = (sessionId, answers) =>
 export const getNextQuestion = (sessionId) =>
   api.get(`/questions/next/${sessionId}`)
 
-export const submitAnswer = (sessionId, paragraphRef, answer) =>
+export const submitAnswer = (sessionId, refId, answer) =>
   api.post('/questions/answer', {
     session_id: sessionId,
-    paragraph_ref: paragraphRef,
+    ref_id: refId,
+    paragraph_ref: refId, // Keep for backward compatibility
     answer: answer
   })
 
 export const getResult = (sessionId) =>
   api.get(`/questions/result/${sessionId}`)
 
-export const explainRule = (paragraphRef, question) =>
+export const explainRule = (refId, question) =>
   api.post('/explain/', {
-    paragraph_ref: paragraphRef,
+    paragraph_ref: refId,
     question: question
   })
